@@ -1,65 +1,52 @@
 extern crate gstreamer as gst;
-use anyhow::{anyhow, Result};
-use gstreamer::{prelude::*, ElementFactory, Pipeline};
-// use std::convert::From;
+extern crate gstreamer_app as gst_app;
+extern crate gstreamer_video as gst_video;
 
-fn create_pipeline(uri: &str) -> Result<Pipeline> {
+use gst::prelude::*;
+
+fn main() {
     // Initialize GStreamer
-    gst::init()?;
+    gst::init().unwrap();
 
     // Create a new pipeline
     let pipeline = gst::Pipeline::new(None);
 
-    // Create a uridecodebin element and set the URI to the video file
-    let uridecodebin = ElementFactory::make("uridecodebin", None)?;
-    uridecodebin.set_property("uri", &uri)?;
+    // Create a new file source element
+    let source = gst::ElementFactory::make("filesrc", None).unwrap();
+    source.set_property("location", &"../vid.mp4").unwrap();
+    pipeline.add(&source).unwrap();
 
-    // Add the uridecodebin element to the pipeline
-    pipeline.add(&uridecodebin)?;
+    // Create a new video decoder element
+    let decoder = gst::ElementFactory::make("decodebin", None).unwrap();
+    pipeline.add(&decoder).unwrap();
 
-    // Create an autovideosink element for displaying the video
-    let videosink = ElementFactory::make("autovideosink", None)?;
+    // Create a new video sink element
+    let sink = gst::ElementFactory::make("autovideosink", None).unwrap();
+    pipeline.add(&sink).unwrap();
+    sink.sync_state_with_parent().unwrap();
 
-    // Add the videosink element to the pipeline
-    pipeline.add(&videosink)?;
+    // Link the elements together
+    source.link(&decoder).unwrap();
+    let sinkpad = sink.get_request_pad("sink").unwrap();
+    let decoder_sinkpad = decoder.get_static_pad("sink").unwrap();
+    decoder_sinkpad.link(&sinkpad).unwrap();
 
-    // Link the uridecodebin and videosink elements together
-    uridecodebin.link(&videosink)?;
+    // Start the pipeline
+    pipeline.set_state(gst::State::Playing).unwrap();
 
-    // Return the pipeline
-    Ok(pipeline)
-}
-
-fn main() -> Result<()> {
-    let uri = "file:///C:/Users/abdiu/Videos/myvidtrial";
-    let pipeline = create_pipeline(uri)?;
-    pipeline.set_state(gst::State::Playing)?;
-
-    // Wait until error or EOS
+    // Wait for the pipeline to finish
     let bus = pipeline.get_bus().unwrap();
     for msg in bus.iter() {
         match msg.view() {
+            gst::MessageView::Eos(..) => break,
             gst::MessageView::Error(err) => {
-                eprintln!(
-                    "Error received from element {:?}: {}",
-                    err.get_src().map(|s| s.get_path_string()),
-                    err.get_error()
-                );
-                eprintln!("Debugging information: {:?}", err.get_debug());
-                return Err(anyhow!("Error playing video"));
-            }
-            gst::MessageView::Eos(..) => {
-                println!("End-Of-Stream reached.");
+                println!("Error: {}", err.get_error());
                 break;
             }
             _ => (),
         }
     }
 
-    pipeline.set_state(gst::State::Null)?;
-    Ok(())
+    // Clean up the pipeline
+    pipeline.set_state(gst::State::Null).unwrap();
 }
-
-// fn main() {
-//     println!("Hello World!")
-// }

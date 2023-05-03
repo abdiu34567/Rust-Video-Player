@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 gstreamer = "0.16.0"
-anyhow = "1.0.43"
+gstreamer-app = "0.16.0"
+gstreamer-video = "0.16.0"

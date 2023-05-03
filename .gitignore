@@ -1,1 +1,13 @@
 /target
+
+
+# Rust build artifacts
+Cargo.lock
+
+# Rust package metadata
+Cargo.toml.orig
+Cargo.toml.swp
+Cargo.toml~
+
+# Rust documentation
+doc/
